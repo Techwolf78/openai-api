@@ -1,39 +1,26 @@
-// api/ask.js
-
+import express from "express";
 import { config } from "dotenv";
 import axios from "axios";
+import rateLimit from "express-rate-limit";
+
 
 config();
+const app = express();
+app.use(express.json());
 
-// Simple in-memory rate limiting (not for production)
-const rateLimitMap = new Map();
-const MAX_REQUESTS = 10;
-const WINDOW_MS = 60 * 1000; // 1 minute
+// Rate limiting: 10 requests per minute per IP
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 10, // limit each IP to 10 requests per windowMs
+  message: { error: "Rate limit exceeded. Please try again later." }
+});
+app.use(limiter);
 
-export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST allowed" });
-  }
-
-  // Simple rate limiting by IP
-  const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
-  const now = Date.now();
-  let entry = rateLimitMap.get(ip);
-  if (!entry || now - entry.start > WINDOW_MS) {
-    entry = { count: 1, start: now };
-  } else {
-    entry.count++;
-  }
-  rateLimitMap.set(ip, entry);
-  if (entry.count > MAX_REQUESTS) {
-    return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
-  }
-
+app.post("/api/ask", async (req, res) => {
   const { prompt } = req.body;
   if (!prompt) {
     return res.status(400).json({ error: "Prompt is required" });
   }
-
   try {
     const openaiRes = await axios.post(
       "https://api.openai.com/v1/chat/completions",
@@ -67,4 +54,9 @@ export default async function handler(req, res) {
     console.error("OpenAI error:", error?.response?.data || error.message);
     res.status(500).json({ error: "Failed to get response from OpenAI" });
   }
-}
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});

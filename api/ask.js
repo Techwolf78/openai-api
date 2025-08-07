@@ -1,29 +1,23 @@
+// /api/chat.js (or /api/ask-ai.js for your component)
 import { config } from "dotenv";
 import axios from "axios";
 
 config();
 
-// Simple in-memory rate limiting (not for production)
+// In-memory rate limiting (basic)
 const rateLimitMap = new Map();
 const MAX_REQUESTS = 10;
 const WINDOW_MS = 60 * 1000; // 1 minute
 
 export default async function handler(req, res) {
-  // CORS headers (allow only localhost:5173 for dev)
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173"); // Adjust in prod
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-  // Handle preflight OPTIONS request
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
+  if (req.method === "OPTIONS") return res.status(200).end();
+  if (req.method !== "POST") return res.status(405).json({ error: "Only POST allowed" });
 
-  if (req.method !== "POST") {
-    return res.status(405).json({ error: "Only POST allowed" });
-  }
-
-  // Parse body if not already parsed
+  // Parse JSON body if needed
   if (typeof req.body === "string") {
     try {
       req.body = JSON.parse(req.body);
@@ -32,7 +26,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // Simple rate limiting by IP
+  // Rate limiting
   const ip = req.headers["x-forwarded-for"] || req.connection.remoteAddress;
   const now = Date.now();
   let entry = rateLimitMap.get(ip);
@@ -43,13 +37,11 @@ export default async function handler(req, res) {
   }
   rateLimitMap.set(ip, entry);
   if (entry.count > MAX_REQUESTS) {
-    return res.status(429).json({ error: "Rate limit exceeded. Please try again later." });
+    return res.status(429).json({ error: "Rate limit exceeded. Try again later." });
   }
 
   const { prompt } = req.body;
-  if (!prompt) {
-    return res.status(400).json({ error: "Prompt is required" });
-  }
+  if (!prompt) return res.status(400).json({ error: "Prompt is required" });
 
   try {
     const openaiRes = await axios.post(
@@ -59,8 +51,7 @@ export default async function handler(req, res) {
         messages: [
           {
             role: "system",
-            content:
-              "You are an educational assistant for Gryphon Academy's sales team. Always answer about colleges using clear headings and bullet points for each section (e.g., Specializations & Programs, Admission Criteria, Fees & Scholarships, Rankings & Reputation, Facilities & Faculty, Placement Outcomes, Industry Alignment, Gryphon Academy Partnership). Make responses concise, informative, and easy to scan. Highlight unique selling points. If a college is a Gryphon partner, mention direct placement pipelines. Answer in under 300 words unless more detail is requested.",
+            content: "You are a helpful, friendly, and knowledgeable AI assistant. Your goal is to answer user questions naturally and accurately, like ChatGPT. Use a conversational tone. Ask clarifying questions when needed. Be detailed but clear.",
           },
           {
             role: "user",
@@ -78,10 +69,11 @@ export default async function handler(req, res) {
         },
       }
     );
+
     const reply = openaiRes.data.choices[0].message.content;
-    res.status(200).json({ reply });
+    return res.status(200).json({ reply });
   } catch (error) {
     console.error("OpenAI error:", error?.response?.data || error.message);
-    res.status(500).json({ error: "Failed to get response from OpenAI" });
+    return res.status(500).json({ error: "Failed to fetch response from OpenAI." });
   }
 }

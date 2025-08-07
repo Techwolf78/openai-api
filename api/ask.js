@@ -1,5 +1,3 @@
-// api/ask.js
-
 import { config } from "dotenv";
 import axios from "axios";
 
@@ -23,6 +21,15 @@ export default async function handler(req, res) {
 
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Only POST allowed" });
+  }
+
+  // Parse body if not already parsed
+  if (typeof req.body === "string") {
+    try {
+      req.body = JSON.parse(req.body);
+    } catch {
+      return res.status(400).json({ error: "Invalid JSON" });
+    }
   }
 
   // Simple rate limiting by IP

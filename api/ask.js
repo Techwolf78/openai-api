@@ -9,8 +9,15 @@ const MAX_REQUESTS = 10;
 const WINDOW_MS = 60 * 1000; // 1 minute
 
 export default async function handler(req, res) {
-  // CORS headers (allow only localhost:5173 for dev)
-  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
+  // CORS headers (allow localhost:5173 for dev and gryphonacademy.co.in for prod)
+  const allowedOrigins = [
+    "http://localhost:5173",
+    "https://www.gryphonacademy.co.in"
+  ];
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 

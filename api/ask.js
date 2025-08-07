@@ -9,8 +9,8 @@ const MAX_REQUESTS = 10;
 const WINDOW_MS = 60 * 1000; // 1 minute
 
 export default async function handler(req, res) {
-  // CORS headers
-  res.setHeader("Access-Control-Allow-Origin", "*");
+  // CORS headers (allow only localhost:5173 for dev)
+  res.setHeader("Access-Control-Allow-Origin", "http://localhost:5173");
   res.setHeader("Access-Control-Allow-Methods", "POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
